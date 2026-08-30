@@ -1,11 +1,92 @@
 import com.nolimitscoaster.*;
 
 class MineralForgeCoasterScript extends Script {
+
+    /*Define Objects*/
+
+    // Define Coaster
+    Coaster coaster;
+
+    // Define Station Sections
+    Section loadingStation;
+
+    // Define Block Sections
+    Section furnaceBlock;
+    Section monsterBlock;
+
+    // Define Transport Sections
+    Section mineEntranceTransport;
+
+    // Define Special Tracks
+    SpecialTrack furnaceTransfer;
+    SpecialTrack monsterTransfer;
+
+    // Define Constants
+    final int DEFAULT_FURNACE_TRANSFER_POSITION = 0;
+
+    // Define variables
+
+
     bool onInit() {
+
+        coaster = sim.getCoasterForEntityId(getParentEntityId());
+
+        loadingStation = coaster.getSection("mf_sec_loading_station");
+
+        furnaceBlock = coaster.getSection("mf_sec_furnace_block");
+        furnaceTransfer = coaster.getSpecialTrack("mf_spec_furnace_transfer");
+
+        mineEntranceTransport = coaster.getSection("mf_sec_mineEntrance_transport");
+
+        monsterBlock = coaster.getSection("mf_sec_monster_block");
+        monsterTransfer = coaster.getSpecialTrack("mf_spec_monster_transfer");
+
+        System.out.println("Mineral Forge initialized.");
+
         return true;
     }
 
     void onNextFrame(float tick) {
         
+    }
+
+    public void resetTransferTable(SpecialTrack transferTable, int defaultPosition) {
+
+        int currentPosition = transferTable.getSwitchDirection();
+
+        if (currentPosition == -1) {
+
+            return;
+
+        }
+        else if (currentPosition != defaultPosition && transferTable.canChangeSwitchDirection()) {
+
+            transferTable.setSwitchDirection(defaultPosition);
+
+        }
+
+    }
+
+    public void dispatch() {
+
+        loadingStation.setStationLeaving();
+
+        if (loadingStation.isStationWaitingForAdvance) {
+
+            if (furnaceBlock.isTrainOnSection()) {
+
+                loadingStation.setStationNextBlockOccupied();
+
+            }
+            else {
+
+                resetTransferTable(furnaceTransfer, DEFAULT_FURNACE_TRANSFER_POSITION);
+
+                loadingStation.setStationNextBlockClear();
+
+            }
+
+        }
+
     }
 }
