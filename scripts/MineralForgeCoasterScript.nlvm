@@ -1,0 +1,11 @@
+import com.nolimitscoaster.*;
+
+class MineralForgeCoasterScript extends Script {
+    bool onInit() {
+        return true;
+    }
+
+    void onNextFrame(float tick) {
+        
+    }
+}
