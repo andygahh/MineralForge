@@ -24,8 +24,14 @@ class MineralForgeCoasterScript extends Script {
     // Define Constants
     final int DEFAULT_FURNACE_TRANSFER_POSITION = 0;
 
-    // Define variables
+    /* Define Variables */
+
+    // Counters
     float basicCounter;
+    float sequenceCounter;
+
+    // States
+    bool transportState;
 
     bool onInit() {
 
@@ -56,6 +62,8 @@ class MineralForgeCoasterScript extends Script {
         }
 
         dispatch();
+
+        mineEntranceSequence(tick);
         
     }
 
@@ -104,16 +112,42 @@ class MineralForgeCoasterScript extends Script {
         System.out.println("Waiting for advance: " + loadingStation.isStationWaitingForAdvance());
     }
 
-    public void mineEntranceSequence() {
+    public void mineEntranceSequence(float tick) {
 
-        if (mineEntranceTransport.isTrainOnSection()) {
-            mineEntranceTransport.setTransportsStandardFwdOn();
+
+        if (!mineEntranceTransport.isTrainOnSection()) {
+
+            mineEntranceTransport.setTransportsOff();
+            transportState = false;
+
         }
         else {
-            mineEntranceTransport.setTransportsOff();
-        }
+            
+            sequenceCounter += tick;
+            transportStutter(mineEntranceTransport, 4.0f, 0.3f);
 
+        }
     }
 
+    public void transportStutter(Section section, float onDuration, float offDuration) {
+
+        float onDuration = onDuration;
+        float offDuration = offDuration;
+        
+        if (transportState && sequenceCounter >= onDuration) {
+
+            section.setTransportsOff();
+            sequenceCounter = 0;
+            transportState = false;
+
+        }
+        else if (!transportState && sequenceCounter >= offDuration) {
+
+            section.setTransportsStandardFwdOn();
+            sequenceCounter = 0;
+            transportState = true;
+
+        }
+    }
     
 }
