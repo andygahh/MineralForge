@@ -25,7 +25,7 @@ class MineralForgeCoasterScript extends Script {
     final int DEFAULT_FURNACE_TRANSFER_POSITION = 0;
 
     // Define variables
-
+    float basicCounter;
 
     bool onInit() {
 
@@ -47,6 +47,15 @@ class MineralForgeCoasterScript extends Script {
     }
 
     void onNextFrame(float tick) {
+
+        basicCounter += tick;
+
+        if (basicCounter >=5) {
+            showStats();
+            basicCounter -= 5;
+        }
+
+        dispatch();
         
     }
 
@@ -69,24 +78,42 @@ class MineralForgeCoasterScript extends Script {
 
     public void dispatch() {
 
-        loadingStation.setStationLeaving();
+        if (loadingStation.isStationWaitingForClearBlock()) {
 
-        if (loadingStation.isStationWaitingForAdvance) {
-
-            if (furnaceBlock.isTrainOnSection()) {
-
-                loadingStation.setStationNextBlockOccupied();
-
-            }
-            else {
-
-                resetTransferTable(furnaceTransfer, DEFAULT_FURNACE_TRANSFER_POSITION);
-
+            if (!furnaceBlock.isTrainOnSection()) {
                 loadingStation.setStationNextBlockClear();
-
             }
 
         }
 
+        if (loadingStation.isStationWaitingForAdvance()) {
+
+            loadingStation.setStationLeaving();
+
+            loadingStation.setBrakesOff();
+
+            loadingStation.setTransportsStandardFwdOn();
+
+        }
+
     }
+
+    public void showStats() {
+
+        System.out.println("Waiting for block clearance: " + loadingStation.isStationWaitingForClearBlock());
+        System.out.println("Waiting for advance: " + loadingStation.isStationWaitingForAdvance());
+    }
+
+    public void mineEntranceSequence() {
+
+        if (mineEntranceTransport.isTrainOnSection()) {
+            mineEntranceTransport.setTransportsStandardFwdOn();
+        }
+        else {
+            mineEntranceTransport.setTransportsOff();
+        }
+
+    }
+
+    
 }
