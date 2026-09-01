@@ -1,0 +1,11 @@
+Section naming convention:
+
+    mf_<type>_<scene>_<role>[_number]
+
+    Types:
+    sec   = track section
+    trg   = track trigger
+    spec  = special track
+    obj   = scene object
+    light = light
+    audio = audio/sound

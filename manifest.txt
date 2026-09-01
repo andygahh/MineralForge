@@ -1,0 +1,17 @@
+Component Names:
+
+    Station:
+        Loading Station = mf_sec_loading_station
+
+    Mine Entrance:
+        Transport Section = mf_sec_mineEntrance_transport
+    
+    Furnace Room:
+        Transport Section = mf_sec_furnaceApproach_transport
+        Block Section  = mf_sec_furnace_block
+        Special Track = mf_spec_furnace_transfer
+
+    Monster Room:
+        Block Section = mf_sec_monster_block
+        Special Track = mf_spec_monster_transfer
+    

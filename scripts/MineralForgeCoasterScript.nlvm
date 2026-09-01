@@ -16,6 +16,7 @@ class MineralForgeCoasterScript extends Script {
 
     // Define Transport Sections
     Section mineEntranceTransport;
+    Section furnaceApproach;
 
     // Define Special Tracks
     SpecialTrack furnaceTransfer;
@@ -24,14 +25,24 @@ class MineralForgeCoasterScript extends Script {
     // Define Constants
     final int DEFAULT_FURNACE_TRANSFER_POSITION = 0;
 
+    final int IDLE_PHASE = 0;
+    final int APPROACH_PHASE = 1;
+    final int PRE_SHIFT_PHASE = 2;
+    final int SHIFT_PHASE = 3;
+    final int POST_SHIFT_PHASE = 4;
+    final int LAUNCHING_PHASE = 5;
+    final int RESET_PHASE = 6;
+
     /* Define Variables */
 
     // Counters
     float basicCounter;
-    float sequenceCounter;
+    float mineEntranceCounter;
+    float furnaceSequenceCounter;
 
     // States
     bool transportState;
+    int currentFurnacePhase = IDLE_PHASE;
 
     bool onInit() {
 
@@ -43,6 +54,7 @@ class MineralForgeCoasterScript extends Script {
         furnaceTransfer = coaster.getSpecialTrack("mf_spec_furnace_transfer");
 
         mineEntranceTransport = coaster.getSection("mf_sec_mineEntrance_transport");
+        furnaceApproach = coaster.getSection("mf_sec_furnaceApproach_transport");
 
         monsterBlock = coaster.getSection("mf_sec_monster_block");
         monsterTransfer = coaster.getSpecialTrack("mf_spec_monster_transfer");
@@ -56,14 +68,15 @@ class MineralForgeCoasterScript extends Script {
 
         basicCounter += tick;
 
-        if (basicCounter >=5) {
+        if (basicCounter >=1) {
             showStats();
-            basicCounter -= 5;
+            basicCounter -= 1;
         }
 
         dispatch();
 
         mineEntranceSequence(tick);
+        furnaceSequence(tick);
         
     }
 
@@ -108,8 +121,9 @@ class MineralForgeCoasterScript extends Script {
 
     public void showStats() {
 
-        System.out.println("Waiting for block clearance: " + loadingStation.isStationWaitingForClearBlock());
-        System.out.println("Waiting for advance: " + loadingStation.isStationWaitingForAdvance());
+        System.out.println("Furnace Sequence Counter: " + furnaceSequenceCounter);
+        System.out.println("Current Furnace Phase: " + currentFurnacePhase);
+        
     }
 
     public void mineEntranceSequence(float tick) {
@@ -123,7 +137,7 @@ class MineralForgeCoasterScript extends Script {
         }
         else {
             
-            sequenceCounter += tick;
+            mineEntranceCounter += tick;
             transportStutter(mineEntranceTransport, 4.0f, 0.3f);
 
         }
@@ -131,23 +145,120 @@ class MineralForgeCoasterScript extends Script {
 
     public void transportStutter(Section section, float onDuration, float offDuration) {
 
-        float onDuration = onDuration;
-        float offDuration = offDuration;
-        
-        if (transportState && sequenceCounter >= onDuration) {
+        if (transportState && mineEntranceCounter >= onDuration) {
 
             section.setTransportsOff();
-            sequenceCounter = 0;
+            mineEntranceCounter = 0;
             transportState = false;
 
         }
-        else if (!transportState && sequenceCounter >= offDuration) {
+        else if (!transportState && mineEntranceCounter >= offDuration) {
 
             section.setTransportsStandardFwdOn();
-            sequenceCounter = 0;
+            mineEntranceCounter = 0;
             transportState = true;
 
         }
     }
-    
+
+    public void furnaceSequence(float tick) {
+
+        final float PRE_SHIFT_WAIT_TIME = 8.0f;
+        final float POST_SHIFT_WAIT_TIME = 8.0f;
+
+        if (currentFurnacePhase == IDLE_PHASE || currentFurnacePhase == APPROACH_PHASE) {
+
+            if (furnaceApproach.isTrainOnSection()) {
+
+                furnaceApproach.setTransportsStandardFwdOn();
+                currentFurnacePhase = APPROACH_PHASE;
+
+            }
+            else {
+
+                furnaceApproach.setTransportsOff();
+
+            }
+
+        }
+
+        if (currentFurnacePhase == APPROACH_PHASE) {
+
+            furnaceBlock.setBrakesOff();
+            furnaceBlock.setTransportsStandardFwdOn();
+
+            if (furnaceBlock.isTrainBehindEndOfSection(2.0)) {
+
+                furnaceBlock.setTransportsOff();
+                furnaceBlock.setBrakesOn();
+
+                currentFurnacePhase = PRE_SHIFT_PHASE;
+            }
+
+        }
+
+        if (currentFurnacePhase == PRE_SHIFT_PHASE) {
+
+            furnaceSequenceCounter += tick;
+
+            if (furnaceSequenceCounter >= PRE_SHIFT_WAIT_TIME) {
+
+                furnaceTransfer.setSwitchDirection(1);
+                furnaceSequenceCounter = 0;
+                currentFurnacePhase = SHIFT_PHASE;
+
+            }
+
+        }
+
+        if (currentFurnacePhase == SHIFT_PHASE) {
+
+            if(furnaceTransfer.getSwitchDirection() == 1) {
+
+                currentFurnacePhase = POST_SHIFT_PHASE;
+
+            }
+
+        }
+
+        if (currentFurnacePhase == POST_SHIFT_PHASE) {
+
+            furnaceSequenceCounter += tick;
+
+            if (furnaceSequenceCounter >= POST_SHIFT_WAIT_TIME) {
+
+                currentFurnacePhase = LAUNCHING_PHASE;
+
+            }
+
+        }
+
+        if (currentFurnacePhase == LAUNCHING_PHASE) {
+
+            furnaceBlock.setBrakesOff();
+            furnaceBlock.setTransportsLaunchBwdOn();
+            furnaceSequenceCounter = 0;
+
+            if (!furnaceBlock.isTrainOnSection()) {
+
+                currentFurnacePhase = RESET_PHASE;
+
+            }
+
+        }
+
+        if(currentFurnacePhase == RESET_PHASE) {
+
+            furnaceBlock.setTransportsOff();
+            furnaceBlock.setBrakesOn();
+
+            resetTransferTable(furnaceTransfer, DEFAULT_FURNACE_TRANSFER_POSITION);
+
+            if (furnaceTransfer.getSwitchDirection() == 0) {
+
+                currentFurnacePhase = IDLE_PHASE;
+
+            }
+        }
+    }
 }
