@@ -2,28 +2,40 @@ import com.nolimitscoaster.*;
 
 class MineralForgeCoasterScript extends Script {
 
-    /*Define Objects*/
+    // region Definitions
+    
+    // region Define Objects
 
-    // Define Coaster
+    // region Define Coaster
     Coaster coaster;
+    // endregion
 
-    // Define Station Sections
+    // region Define Station Sections
     Section loadingStation;
+    // endregion
 
-    // Define Block Sections
+    // region Define Block Sections
     Section furnaceBlock;
     Section monsterBlock;
+    Section monsterApproachBlock;
+    // endregion
 
-    // Define Transport Sections
+    // region Define Transport Sections
     Section mineEntranceTransport;
     Section furnaceApproach;
+    Section liftLaunch;
+    // endregion
 
-    // Define Special Tracks
+    // region Define Special Tracks
     SpecialTrack furnaceTransfer;
     SpecialTrack monsterTransfer;
+    // endregion
 
-    // Define Constants
+    // endregion
+
+    // region Define Constants
     final int DEFAULT_FURNACE_TRANSFER_POSITION = 0;
+    final int DEFAULT_MONSTER_TRANSFER_POSITION = 0;
 
     final int IDLE_PHASE = 0;
     final int APPROACH_PHASE = 1;
@@ -32,32 +44,49 @@ class MineralForgeCoasterScript extends Script {
     final int POST_SHIFT_PHASE = 4;
     final int LAUNCHING_PHASE = 5;
     final int RESET_PHASE = 6;
+    // endregion
 
-    /* Define Variables */
+    // region Define Variables
 
-    // Counters
+    // region Counters
     float basicCounter;
     float mineEntranceCounter;
     float furnaceSequenceCounter;
+    float monsterSequenceCounter;
+    float tugOfWarCounter;
+    // endregion
 
-    // States
+    // region States
     bool transportState;
-    int currentFurnacePhase = IDLE_PHASE;
+    bool monsterTransportState;
 
+    int currentFurnacePhase = IDLE_PHASE;
+    int currentMonsterPhase = IDLE_PHASE;
+    int currentTugOfWarPhase = -1;
+    // endregion
+
+    // endregion
+
+    // endregion
+    
+    // region Runtime
+    
     bool onInit() {
 
         coaster = sim.getCoasterForEntityId(getParentEntityId());
 
         loadingStation = coaster.getSection("mf_sec_loading_station");
 
+        mineEntranceTransport = coaster.getSection("mf_sec_mineEntrance_transport");
+
         furnaceBlock = coaster.getSection("mf_sec_furnace_block");
         furnaceTransfer = coaster.getSpecialTrack("mf_spec_furnace_transfer");
-
-        mineEntranceTransport = coaster.getSection("mf_sec_mineEntrance_transport");
         furnaceApproach = coaster.getSection("mf_sec_furnaceApproach_transport");
 
+        monsterApproachBlock = coaster.getSection("mf_sec_monsterApproach_block");
         monsterBlock = coaster.getSection("mf_sec_monster_block");
         monsterTransfer = coaster.getSpecialTrack("mf_spec_monster_transfer");
+        liftLaunch = coaster.getSection("mf_sec_liftLaunch_transport");
 
         System.out.println("Mineral Forge initialized.");
 
@@ -77,9 +106,14 @@ class MineralForgeCoasterScript extends Script {
 
         mineEntranceSequence(tick);
         furnaceSequence(tick);
+        monsterSequence(tick);
         
     }
 
+    // endregion
+
+    // region Helper Methods
+    
     public void resetTransferTable(SpecialTrack transferTable, int defaultPosition) {
 
         int currentPosition = transferTable.getSwitchDirection();
@@ -123,24 +157,10 @@ class MineralForgeCoasterScript extends Script {
 
         System.out.println("Furnace Sequence Counter: " + furnaceSequenceCounter);
         System.out.println("Current Furnace Phase: " + currentFurnacePhase);
+        System.out.println("Current Monster Phase: " + currentMonsterPhase);
+        System.out.println("Tug of War Counter: " + tugOfWarCounter);
+        System.out.println("Current Tug of War Phase: " + currentTugOfWarPhase);
         
-    }
-
-    public void mineEntranceSequence(float tick) {
-
-
-        if (!mineEntranceTransport.isTrainOnSection()) {
-
-            mineEntranceTransport.setTransportsOff();
-            transportState = false;
-
-        }
-        else {
-            
-            mineEntranceCounter += tick;
-            transportStutter(mineEntranceTransport, 4.0f, 0.3f);
-
-        }
     }
 
     public void transportStutter(Section section, float onDuration, float offDuration) {
@@ -161,10 +181,151 @@ class MineralForgeCoasterScript extends Script {
         }
     }
 
+    public void tugOfWar(float tick, Section section) {
+
+        final int PRE_SHIFT = -1;
+        final int SHIFT_1 = 0;
+        final int SHIFT_2 = 1;
+        final int SHIFT_3 = 2;
+        final int SHIFT_4 = 3;
+        final int SHIFT_5 = 4;
+
+        tugOfWarCounter += tick;
+
+        if (currentTugOfWarPhase == PRE_SHIFT) {
+
+            section.setBrakesOff();
+            currentTugOfWarPhase = SHIFT_1;
+
+        }
+
+        else if (currentTugOfWarPhase == SHIFT_1) {
+
+            if (monsterTransportState && tugOfWarCounter >= 1.0f) {
+
+            section.setTransportsOff();
+            section.setBrakesOn();
+            tugOfWarCounter = 0;
+            monsterTransportState = false;
+            currentTugOfWarPhase = SHIFT_2;
+
+            }
+            else if (!monsterTransportState && tugOfWarCounter >= 1.0f) {
+
+                section.setTransportsStandardFwdOn();
+                tugOfWarCounter = 0;
+                monsterTransportState = true;
+
+            }
+
+        }
+
+        else if (currentTugOfWarPhase == SHIFT_2) {
+
+            if (monsterTransportState && tugOfWarCounter >= 0.5f) {
+
+            section.setTransportsOff();
+            section.setBrakesOn();
+            tugOfWarCounter = 0;
+            monsterTransportState = false;
+            currentTugOfWarPhase = SHIFT_3;
+
+            }
+            else if (!monsterTransportState && tugOfWarCounter >= 0.5f) {
+
+                section.setBrakesOff();
+                section.setTransportsLaunchBwdOn();
+                tugOfWarCounter = 0;
+                monsterTransportState = true;
+
+            }
+
+        }
+
+        else if (currentTugOfWarPhase == SHIFT_3) {
+
+            if (monsterTransportState && tugOfWarCounter >= 0.5f) {
+
+            section.setTransportsOff();
+            section.setBrakesOn();
+            tugOfWarCounter = 0;
+            monsterTransportState = false;
+            currentTugOfWarPhase = SHIFT_4;
+
+            }
+            else if (!monsterTransportState && tugOfWarCounter >= 0.5f) {
+
+                section.setBrakesOff();
+                section.setTransportsLaunchFwdOn();
+                tugOfWarCounter = 0;
+                monsterTransportState = true;
+
+            }
+
+        }
+
+        else if (currentTugOfWarPhase == SHIFT_4) {
+
+            if (monsterTransportState && tugOfWarCounter >= 0.75f) {
+
+            section.setTransportsOff();
+            section.setBrakesOn();
+            tugOfWarCounter = 0;
+            monsterTransportState = false;
+            currentTugOfWarPhase = SHIFT_5;
+
+            }
+            else if (!monsterTransportState && tugOfWarCounter >= 0.3f) {
+
+                section.setBrakesOff();
+                section.setTransportsLaunchBwdOn();
+                tugOfWarCounter = 0;
+                monsterTransportState = true;
+
+            }
+
+        }
+
+        else if (currentTugOfWarPhase == SHIFT_5) {
+
+            section.setBrakesOff();
+            section.setTransportsLaunchFwdOn();
+
+            if (!section.isTrainOnSection()) {
+
+                currentTugOfWarPhase = PRE_SHIFT;
+                
+            }
+
+        }
+        
+    }
+
+    // endregion
+
+    // region Sequence Methods
+
+    public void mineEntranceSequence(float tick) {
+
+
+        if (!mineEntranceTransport.isTrainOnSection()) {
+
+            mineEntranceTransport.setTransportsOff();
+            transportState = false;
+
+        }
+        else {
+            
+            mineEntranceCounter += tick;
+            transportStutter(mineEntranceTransport, 4.0f, 0.3f);
+
+        }
+    }
+
     public void furnaceSequence(float tick) {
 
         final float PRE_SHIFT_WAIT_TIME = 8.0f;
-        final float POST_SHIFT_WAIT_TIME = 8.0f;
+        final float POST_SHIFT_WAIT_TIME = 4.0f;
 
         if (currentFurnacePhase == IDLE_PHASE || currentFurnacePhase == APPROACH_PHASE) {
 
@@ -197,7 +358,7 @@ class MineralForgeCoasterScript extends Script {
 
         }
 
-        if (currentFurnacePhase == PRE_SHIFT_PHASE) {
+        else if (currentFurnacePhase == PRE_SHIFT_PHASE) {
 
             furnaceSequenceCounter += tick;
 
@@ -211,7 +372,7 @@ class MineralForgeCoasterScript extends Script {
 
         }
 
-        if (currentFurnacePhase == SHIFT_PHASE) {
+        else if (currentFurnacePhase == SHIFT_PHASE) {
 
             if(furnaceTransfer.getSwitchDirection() == 1) {
 
@@ -221,7 +382,7 @@ class MineralForgeCoasterScript extends Script {
 
         }
 
-        if (currentFurnacePhase == POST_SHIFT_PHASE) {
+        else if (currentFurnacePhase == POST_SHIFT_PHASE) {
 
             furnaceSequenceCounter += tick;
 
@@ -233,7 +394,7 @@ class MineralForgeCoasterScript extends Script {
 
         }
 
-        if (currentFurnacePhase == LAUNCHING_PHASE) {
+        else if (currentFurnacePhase == LAUNCHING_PHASE) {
 
             furnaceBlock.setBrakesOff();
             furnaceBlock.setTransportsLaunchBwdOn();
@@ -247,7 +408,7 @@ class MineralForgeCoasterScript extends Script {
 
         }
 
-        if(currentFurnacePhase == RESET_PHASE) {
+        else if (currentFurnacePhase == RESET_PHASE) {
 
             furnaceBlock.setTransportsOff();
             furnaceBlock.setBrakesOn();
@@ -261,4 +422,109 @@ class MineralForgeCoasterScript extends Script {
             }
         }
     }
+
+    public void monsterSequence(float tick) {
+
+        final float PRE_SHIFT_WAIT_TIME = 2.0f;
+        final float POST_SHIFT_WAIT_TIME = 4.0f;
+
+        if (currentMonsterPhase == IDLE_PHASE || currentMonsterPhase == APPROACH_PHASE) {
+
+            if (monsterApproachBlock.isTrainOnSection()) {
+
+                monsterApproachBlock.setTransportsStandardBwdOn();
+                currentMonsterPhase = APPROACH_PHASE;
+
+            }
+            else {
+
+                monsterApproachBlock.setTransportsOff();
+
+            }
+
+        }
+
+        if (currentMonsterPhase == APPROACH_PHASE) {
+
+            monsterBlock.setBrakesOff();
+            monsterBlock.setTransportsStandardBwdOn();
+
+            if (monsterBlock.isTrainBeforeStartOfSection(8.0)) {
+
+                monsterBlock.setTransportsOff();
+                monsterBlock.setBrakesOn();
+
+                currentMonsterPhase = PRE_SHIFT_PHASE;
+            }
+
+        }
+
+        else if (currentMonsterPhase == PRE_SHIFT_PHASE) {
+
+            monsterSequenceCounter += tick;
+
+            if (monsterSequenceCounter >= PRE_SHIFT_WAIT_TIME) {
+
+                monsterTransfer.setSwitchDirection(1);
+                monsterSequenceCounter = 0;
+                currentMonsterPhase = SHIFT_PHASE;
+
+            }
+
+        }
+
+        else if (currentMonsterPhase == SHIFT_PHASE) {
+
+            if(monsterTransfer.getSwitchDirection() == 1) {
+
+                currentMonsterPhase = POST_SHIFT_PHASE;
+
+            }
+
+        }
+
+        else if (currentMonsterPhase == POST_SHIFT_PHASE) {
+
+            monsterSequenceCounter += tick;
+
+            if (monsterSequenceCounter >= POST_SHIFT_WAIT_TIME) {
+
+                currentMonsterPhase = LAUNCHING_PHASE;
+
+            }
+
+        }
+
+        else if (currentMonsterPhase == LAUNCHING_PHASE) {
+
+            tugOfWar(tick, monsterBlock);
+
+            monsterSequenceCounter = 0;
+
+            if (!monsterBlock.isTrainOnSection()) {
+
+                currentMonsterPhase = RESET_PHASE;
+
+            }
+
+        }
+
+        else if (currentMonsterPhase == RESET_PHASE) {
+
+            monsterBlock.setTransportsOff();
+            monsterBlock.setBrakesOn();
+
+            resetTransferTable(monsterTransfer, DEFAULT_MONSTER_TRANSFER_POSITION);
+
+            if (monsterTransfer.getSwitchDirection() == 0) {
+
+                currentMonsterPhase = IDLE_PHASE;
+
+            }
+        }
+
+    }
+
+    // endregion
+
 }

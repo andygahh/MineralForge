@@ -12,6 +12,8 @@ Component Names:
         Special Track = mf_spec_furnace_transfer
 
     Monster Room:
+        Block Section = mf_sec_monsterApproach_block
         Block Section = mf_sec_monster_block
         Special Track = mf_spec_monster_transfer
+        Transport Section = mf_sec_liftLaunch_transport
     
